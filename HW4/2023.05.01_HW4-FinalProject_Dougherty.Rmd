@@ -1,0 +1,384 @@
+---
+title: "HW4_FinalProject_Dougherty"
+author: "Mark Dougherty"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# If not yet installed, run the following to install the tidyverse and devtools (required for this script):
+# install.packages("tidyverse")
+# install.packages("devtools")
+
+# Load tidyverse & devtools
+library(tidyverse)
+library(devtools)
+```
+
+## Unsupervised Clustering and Heatmap Analysis of Human Schwannoma Metabolites
+*Mark Dougherty*     
+*Project Homework #4 - BIOL 4386: Intro to Scientific Computing*     
+*Due May 1, 2023*      
+*Github repo: [https://github.com/Intro-Sci-Comp-UIowa/biol-4386-course-project-doughertymc](https://github.com/Intro-Sci-Comp-UIowa/biol-4386-course-project-doughertymc)*
+
+#### Reference
+Masalha, W., Daka, K., Woerner, J. *et al*. Metabolic alterations in meningioma reflect the clinical course. *BMC Cancer* 21, 211 (2021).
+[https://rdcu.be/c5yzG](https://rdcu.be/c5yzG)
+
+#### Introduction   
+Schwannomas are benign (WHO grade 1) tumors that grow on peripheral nerves, originating from the Schwann cells that myelinate the nerve axons. Vestibular schwannomas are those that occur on the vestibular nerve intracranially, and account for about 8% of all primary brain tumors. Surgery and radiation are first-line treatments for these tumors, but if they fail there is no second-line therapy. Thus, novel medical treatments are needed. What's more, although all schwannomas are considered Grade 1 tumors, some are more aggressive than others; we do not currently have a biological explanation for this inter-tumor heterogeneity or a good way to predict this behavior in order to modify our clinical care. Recent literature has suggested a possible role of the tumor-immune microenvironment, as there are differences in macrophage infiltration between different tumors. Another recent development in the literature is that DNA methylation profiling can identify tumors with more aggressive phenotypes better than genomic or transcriptomic analysis, suggesting that schwannomas may be driven largely by *epigenetic* changes rather than the classical genetic mutation paradigm in cancer.  
+  
+My research focuses on trying to improve our understanding of the underlying biology of schwannomas in hope of finding vulnerabilities that could serve as drug targets, as well as further explain differences in tumor recurrence/aggressiveness. Specifically, I have been using metabolomics, which is a method of analyzing levels of many (~100-150) metabolites in a tissue at a given time. Metabolomic analysis has not previously been used to study schwannomas, but has shown promise in finding novel treatment targets in other tumors/cancers. Thus, our aims are twofold: identify novel drug targets in metabolic pathways, and identify biological differences that might explain differences in tumor behavior. In the future, I also hope to integrate this analysis with other '-omics' data and clinical outcomes, but that is likely beyond the scope of the current project.
+  
+In this project, my aim is to use R to process data from metabolomic analysis of primary human schwannoma samples, and then use unsupervised clustering analysis and a heatmap to evaluate whether there are meaningful clusters of tumors that seem to be metabolically similar. I will use the same unsupervised PAM cluster analysis method as the authors of this paper use, although at this time I do not know the specifics of this cluster method or why they chose it over other unsupervised clustering methods. This is an exploratory analysis, so it is possible that I will not find clean clustering as is the case with the reference figure. On the other hand, if I do identify strong data clusters, further steps would then be needed to determine what the groups/clusters mean. In order to evaluate the clustering visually, I will combine the clustering analysis to arrange the metabolites, and then visualize with a heatmap as in Figure 2A of Masalha *et al*. Notably, I do not intend to perform the analyses in parts B & C of the same figure, nor do I anticipate including a 'Silhouette width' graph as they do at the top part of their figure.
+
+As a secondary aim of this project, I hope to apply a similar process to describe the effect of radiation on patient-derived schwannoma xenografts. As with the primary schwannomas, we already have data from these specimens, but unlike the primary tumors we also have treatment groups (radiation/control) that can be compared.
+  
+#### Figure to reproduce: Figure 2A
+![Figure 2A taken from Masalha *et al*](C:/Users/mark1/Dropbox/BIOL_4386/Project_Folder/HW3/12885_2021_7887_Fig2_HTML.png)
+
+#### Materials and Methods
+##### *Specimen collection*  
+- Schwannoma specimens are collected directly from surgical patients at UIHC. A *primary tumor* specimen is flash-frozen in liquid nitrogen in the operating room. When available, additional tissue is implanted in 8-9 nude mice per human tumor (*patient-derived xenografts*); after the mice recover (~2-4 weeks), these xenografts are treated with radiation (0, 10, 20 Gy) and harvested 72 hours post-treatment. The *primary tumors* and *xenografts* are then metabolically profiled with GC-MS and/or LC-MS (AKA metabolomics).  
+  
+##### *Data Preprocessing & Cleaning*
+
+-  The UI Metabolomics Core performs the mass spectrometry analysis and provides the data to our lab as relative concentrations of each metabolite in a **labeled Excel spreadsheet**. Each sample has ~100-150 metabolite levels measured. *Critically, these are relative levels rather than absolute concentrations. This means that we can compare one metabolite between different samples (e.g. glutamine 2x higher in Sample X than in Sample Y), but we cannot directly compare levels of different metabolites (e.g. cannot state "glutamine is 2x higher than glutamate").*
+-  Non-metabolic information must then be manually associated with samples. For example, in the above figure 2A this would include Edema, Proliferation, Gender, and WHO Grade at the bottom of the heatmap. Our samples are labeled with: NF2 status (categorical), prior radiation (categorical), prior surgery (categorical), and proliferation (continuous; from EdU assay, [xenografts only]). Some samples also have freeze time data (continuous)
+-  Data will then be imported from Excel into R
+
+## Materials & Methods - Data Analysis Part One: Primary Tumor Samples
+-  Double check that undesired samples are excluded from further analyses (eg 2022.3.11 (S35) known ischemic sample) **DONE**
+
+- **Clustering & Heatmap**
+	- As described in the [Methods](https://bmccancer.biomedcentral.com/articles/10.1186/s12885-021-07887-5#Sec2 "Methods Section") of the journal article cited above, I set out to perform cluster analysis on my data using their R package **AutoPipe**, which they make available on [GitHub](https://github.com/falafel19/AutoPipe).
+
+## Materials & Methods - Data Analysis Part Two: Radiation effect in Schwannoma Xenografts  
+-  **Normalization**: Fold change calculations (xenografts only)
+	- *Xenograft fold change calculations are complicated because want to normalize to mean of control group for each specific tumor*
+	- Example: Tumor from patient 123 was implanted into 9 mice, and those 9 mice were randomized to 0, 10, or 20 Gy radiation treatment (3 per group). Tumor from patient 456 was also implanted into 9 mice. However, to evaluate the fold change of a given metabolite after radiation, we want to compare the 10 & 20 Gy treatment groups from Patient 123 to the control tumors of Patient 123, and Radiated Tumors from Patient 456 to Control Tumors from Patient 456.
+-  **Outlier detection**: Grubbs' test, alpha = 0.01.   
+-  **Test for normality** - Shapiro-Wilk test   
+-  **Transformation** (when needed) - for non-normally distributed metabolites, LogTransform the values   
+-  **Statistical analysis (xenografts)**   
+	- Correlation with radiation dose (per metabolite)   
+  - Two-way ANOVA with Holm-Sidak test for xenografts to compare radiation treatment doses   
+-  **Graphs**    
+  - Graph of average fold change by radiation dose (0-10-20 Gy) per metabolite, only selecting the metabolites with correlation with radiation dose > 0.25
+
+# Results
+## Results - Data Analysis Part 1:
+- Broadly speaking, although it took significant effort to implement and the R Package from the Masalha publication was NOT user-friendly, I was able to apply the clustering functions from their package 'AutoPipe' to test for the optimal cluster number (n=2 was best), and then apply PAM (partitions around medioids) clustering to my data. Thus, the baseline goal was achieved
+- However, the figure that was produced with this was not easily modified to include metabolite names or improved formatting. Thus, in its current state it is not suitable for publication, but hopefully I can find a way to improve upon this visually. Ironically, although the PAM clustering was successful, due to the poor visualization it is difficult to see exactly how the tumors clustered and which metaboiltes were the basis for said clustering.
+
+```{r}
+# Part 1: Vestibular Schwannoma Primary Tumor Clustering Data Analysis
+# Source of AutoPipe: https://github.com/falafel19/AutoPipe
+# Reference: Masalha et al (2021). https://rdcu.be/c5yzG
+
+# Import raw data file from CSV to tibble using read_csv
+vs_primary_metabolomics_raw <- read_csv("C:/Users/mark1/Dropbox/BIOL_4386/Project_Folder/Formatted_Data/230117_Swnma_PrimaryTumorsGCLC_09.2022_Batch.csv")
+# Remove missing metabolite columns and save as curated tibble. Note that columns 1-6 are metadata.
+vs_primary_curated <- vs_primary_metabolomics_raw %>% select(!where(is_logical))
+metabolite_names_primary <- colnames(vs_primary_curated)[-(1:6)]
+# Note that must remove sample S15 to run clustering because S15 is missing all LCMS data (~half of metabolites), AND must remove S46 because it gets classified as a cluster on its own so the heatmap function throws an error with it included. Notably on prior MetaboAnalyst analysis, had found that S46 is an outlier on the PCA when including all metabolites due to crazy outlier value for Malonate. May be worthwhile to remove Malonate and re-test with S46 included, although not critical because only adds one more sample.
+vs_primary_curated <- vs_primary_curated %>% filter(Sample_Label != "S15") %>% filter(Sample_Label != "S46")
+view(vs_primary_curated)
+
+vs_clinical_data <- vs_primary_curated[c(1,3,4,5,6)]
+vs_clinical_data_df <- vs_clinical_data %>% column_to_rownames(var = "Sample_Label") %>% as.data.frame(.)
+
+#Remove metabolite columns with missing data, and remove metadata columns 2:6
+vs_primary_no_missing <- vs_primary_curated[-(2:6)] %>% select(where(~all(!is.na(.))))
+view(vs_primary_no_missing)
+
+```
+
+```{r, include=FALSE}
+# Install AutoPipe from GitHub using devtools (devtools must be loaded):
+# First must install dependencies if not already installed
+library(BiocManager)
+BiocManager::install(c('siggenes', 'annotate', 'fgsea', 'org.Hs.eg.db', 'ConsensusClusterPlus', 'clusterProfiler'))
+install_github("falafel19/AutoPipe")
+library(AutoPipe)
+library(org.Hs.eg.db)
+```   
+
+```{r}
+### NOTE: CANNOT RUN THIS STUFF PRIOR TO USING TIDYVERSE IN ABOVE CHUNK BECAUSE LOADING THESE PACKAGES DISRUPT ALL THE THINGS I DO WITH DPLYR
+#Must convert from tibble to dataframe for AutoPipe::TopPAM to work; this also converts the column Sample_Label to the actual row labels for the dataframe
+vs_primary_df <- vs_primary_no_missing %>% column_to_rownames(var = "Sample_Label") %>% as.data.frame(.)
+class(vs_primary_df)
+vs_transposed <- t(vs_primary_df)
+# Run AutoPipe's TopPAM feature to calcluate optimal number of clusters using PAM clustering. NOTE this requires metabolites in ROWS and samples in COLUMNS
+res <- AutoPipe::TopPAM(vs_transposed, max_clusters = 15, TOP=139, B=100, clusterboot=FALSE)
+# TopPAM result -> 2 groups are best for PAM clustering, but one of them is just sample S46
+
+me_TOP <- res[[1]]
+dim(me_TOP)
+number_of_k <- res[[3]]
+File_genes <- AutoPipe::Groups_Sup(me_TOP, me = vs_transposed, number_of_k,TRw=-1)
+groups_men=File_genes[[2]]
+
+AutoPipe::Supervised_Cluster_Heatmap(groups_men = groups_men, gene_matrix=File_genes[[1]], TOP_Cluster= 15, method="PAMR", show_sil=TRUE, show_clin=T, genes_to_print = 4, print_genes=T, TOP=50, GSE=F, plot_mean_sil=T, stats_clust=res[[2]], threshold=1, samples_data = vs_clinical_data_df)
+
+
+# Un-load the following packages because they otherwise interfere with dplyr in part 2
+detach("package:org.Hs.eg.db")
+detach("package:AutoPipe")
+detach("package:BiocManager")
+detach("package:AnnotationDbi")
+detach("package:Biobase")
+detach("package:IRanges")
+detach("package:S4Vectors")
+detach("package:BiocGenerics")
+```
+
+
+## Results - Data Analysis Part 2
+### Part 2.1: Normalization
+
+```{r}
+
+# Import raw data file from CSV to tibble using read_csv
+vs_xeno_metabolomics_raw <- read_csv("C:/Users/mark1/Dropbox/BIOL_4386/Project_Folder/Formatted_Data/230125 Swnma NewXeno wGroupID GCLC sorted.csv")
+
+## NEW CONSOLIDATED CODE 4.1.23 for data wrangling - calculates fold changes as desired
+vs_xeno_curated <- vs_xeno_metabolomics_raw %>% select(!where(is_logical)) %>% rename(primary_tumor = "Corresponding Primary/Xenograft", dose = "RT Dose (Gy) - Xenografts")
+metabolite_names_xeno <- colnames(vs_xeno_curated)[-(1:5)]
+vs_xeno_fc <- vs_xeno_curated %>% select(primary_tumor, dose, all_of(metabolite_names_xeno)) %>% group_by(primary_tumor) %>% mutate(across(all_of(metabolite_names_xeno), ~ .x / mean(.x[dose==0], na.rm=TRUE)))
+
+```
+
+### Part 2.2: Outlier detection
+Grubbs' test, alpha = 0.01
+- Overall this was successful and I was able to create a list of the metabolites with outliers as identified by Grubbs' test
+- However, I did not successfully incorportate this outlier information into the subsequent analysis, such that all the stats and graphs include any outliers that Grubbs' test may have found. This was due to the difficulty of working with single NA values in multiple columns (57 of 144 columns had significant outliers), with those NA values not occurring in the same row for each column and thus not straightforward to remove those values from statistical calculations, normality testing, etc. In the future, I hope to re-run all subsequent analyses without these outlier values.
+```{r}
+################# Outlier Detection - NOW WORKING AS OF 5.9.23 PM
+##If not already installed, run: install.packages("outliers")
+library(outliers)
+
+# Run Grubbs' test for outliers on each column name in vs_xeno_fc that appears in the vector list metabolite_names_xeno
+grubbs_results <- map_dfr(metabolite_names_xeno, ~{
+  metabolite_col <- .x
+  test_result_high <- grubbs.test(vs_xeno_fc[[metabolite_col]], opposite=FALSE, type=10)
+  test_result_low <- grubbs.test(vs_xeno_fc[[metabolite_col]], opposite=TRUE, type=10)
+  list(metabolite_name = metabolite_col,
+       high_value = max(vs_xeno_fc[[metabolite_col]], na.rm=TRUE),
+       p_value_high = test_result_high$p.value,
+       low_value = min(vs_xeno_fc[[metabolite_col]], na.rm=TRUE),
+       p_value_low = test_result_low$p.value)
+})
+# Filter for only the metabolites with p<0.01 on either high or low Grubbs test ('high' tests largest value, 'low' tests smallest value)
+outlier_df <- grubbs_results %>% filter(., p_value_high<=0.01 | p_value_low<=0.01)
+outlier_list <- outlier_df$metabolite_name
+## NOTE THAT NONE OF THE LOW VALUES WERE SIGNIFICANT; 57 HIGH VALUES WERE SIGNIFICANT OUTLIERS PER GRUBBS TEST (alpha<0.01)
+# Loop over each metabolite in outlier_df and replace the high value with NA in vs_xeno_fc
+vs_xeno_fc_outliers_removed <- vs_xeno_fc
+for (metabolite_name in outlier_df$metabolite_name) {
+  vs_xeno_fc_outliers_removed <- vs_xeno_fc_outliers_removed %>%
+    mutate(!!sym(metabolite_name) := if_else(!!sym(metabolite_name) == outlier_df$high_value[outlier_df$metabolite_name == metabolite_name], NA_real_, !!sym(metabolite_name)))
+}
+
+```
+
+
+### Part 2.3: Test for normality wtih Shapiro-Wilk test
+- This was largely successful, and was incorporated into subsequent steps.
+- However, as noted above, it does NOT exclude the outliers that were identified with Grubbs' test, so it is possible that the results would change without those values.
+```{r}
+################# Test for Normality with Shapiro-Wilk test (NOTE: THIS DOES NOT YET ACCOUNT FOR VALUES REMOVED BY OUTLIER TEST)
+# Initialize an empty tibble to store the p-values from the Shapiro-Wilk test
+shapiro_pvalues <- tibble(metabolite = character(),
+                          p_value = double())
+
+# Loop over the outcome variables and perform the Shapiro-Wilk test
+for (i in 1:length(metabolite_names_xeno)) {
+  # Extract the outcome variable
+  outcome_var <- metabolite_names_xeno[i]
+  # Perform the Shapiro-Wilk test
+  shapiro_test <- shapiro.test(vs_xeno_fc[[outcome_var]])
+  # Store the variable name and p-value in the tibble
+  shapiro_pvalues <- shapiro_pvalues %>% 
+    add_row(metabolite = outcome_var, p_value = shapiro_test$p.value)
+}
+
+# Sort the tibble by p-values and filter for p-values > 0.05 (non-normally distributed) and < 0.05 (normally distributed)
+# non-normal list:
+shapiro_pvalues_nonnormal <- shapiro_pvalues %>% arrange(p_value) %>% filter(p_value > 0.05)
+# normally distributed:
+shapiro_pvalues_normal <- shapiro_pvalues %>% arrange(p_value) %>% filter(p_value <= 0.05)
+
+```
+
+
+### Part 2.4: Log transformation of non-normally distributed metabolites  
+- This was largely successsful.
+
+```{r}
+################ Transformation of LogNormal metabolites
+# Create tibble to identify the columns that are normal
+vs_xeno_fc_normal <- vs_xeno_fc %>% group_by(primary_tumor, dose) %>% select(all_of(shapiro_pvalues_normal$metabolite))
+
+# Create new tibble with only the columns to log transform
+vs_xeno_fc_nonnormal <- vs_xeno_fc %>% group_by(primary_tumor, dose) %>% select(all_of(shapiro_pvalues_nonnormal$metabolite))
+
+# Log-transform the columns
+vs_xeno_fc_log_transformed <- vs_xeno_fc_nonnormal %>% mutate_if(is.numeric, ~ ifelse(. > 0, log(.), NA))
+
+# IF DESIRED CAN RE-BIND THESE VALUES TO THE NORMALLY DISTRIBUTED VALUES USING CODE SIMILAR TO THE FOLLOWING:
+## Combine the log-transformed columns with the rest of the original tibble
+# my_tibble_transformed <- bind_cols(my_tibble %>% select(-all_of(var_names_to_log)), my_tibble_log_transformed)
+## View the resulting tibble
+# my_tibble_transformed
+
+```
+
+
+
+
+### Part 2.5: Statistical Analysis   
+- Correlation with radiation dose (per metabolite): successful.   
+- Two-way ANOVA with Holm-Sidak test for xenografts to compare radiation treatment doses   
+  - The two-way ANOVA was done, and I believe it was done correctly.
+  - However, I was unable to figure out how to do the Holm-Sidak test in an efficient manner across the long list of metabolites without manually copy-pasting a new line of code for each metabolite column. Further work will need to be done to apply the same code across all columns automatically.
+
+```{r}
+################STATISTICAL TESTS (note: does not yet account for outliers)
+######### Correlation with radiation
+# Create an empty list to store the correlations
+my_correlations <- list()
+# Loop over the output variables and compute the correlations
+for (i in 3:ncol(vs_xeno_fc)) {
+  output_var <- names(vs_xeno_fc)[i]
+  cor_test <- cor.test(vs_xeno_fc$dose, vs_xeno_fc[[output_var]], method = "pearson")
+  my_correlations[[output_var]] <- cor_test$estimate
+}
+# Combine the correlations into a data frame
+cor_df <- data.frame(output_var = names(my_correlations),
+                     correlation = unlist(my_correlations))
+cor_df_filtered_sorted <- cor_df %>% arrange(desc(correlation)) %>% filter(correlation > 0.2)
+
+#### REPEAT THE ABOVE FOR ONLY THE NORMALLY DISTRIBUTED METABOLITES
+my_correlations <- list()
+for (i in 3:ncol(vs_xeno_fc_normal)) {
+  output_var <- names(vs_xeno_fc_normal)[i]
+  cor_test <- cor.test(vs_xeno_fc_normal$dose, vs_xeno_fc_normal[[output_var]], method = "pearson")
+  my_correlations[[output_var]] <- cor_test$estimate
+}
+# Combine the correlations into a data frame
+cor_df_normal <- data.frame(output_var = names(my_correlations),
+                     correlation = unlist(my_correlations))
+cor_df_normal_filtered_sorted <- cor_df_normal %>% arrange(desc(correlation)) %>% filter(correlation > 0.2)
+
+#### REPEAT THE ABOVE FOR ONLY LOG-TRANSFORMED METABOLITES
+my_correlations <- list()
+for (i in 3:ncol(vs_xeno_fc_log_transformed)) {
+  output_var <- names(vs_xeno_fc_log_transformed)[i]
+  cor_test <- cor.test(vs_xeno_fc_log_transformed$dose, vs_xeno_fc_log_transformed[[output_var]], method = "pearson")
+  my_correlations[[output_var]] <- cor_test$estimate
+}
+# Combine the correlations into a data frame
+cor_df_log_normal <- data.frame(output_var = names(my_correlations),
+                            correlation = unlist(my_correlations))
+cor_df_log_normal_filtered_sorted <- cor_df_log_normal %>% arrange(desc(correlation)) %>% filter(correlation > 0.2)
+
+#Create data frame with both normal and log transformed correlations that are >0.2 by pearson test and sorted from high to low
+cor_df_all_filtered_sorted <- rbind(cor_df_normal_filtered_sorted, cor_df_log_normal_filtered_sorted) %>% arrange(desc(correlation))
+
+
+################ Two-way ANOVA with Holm-Sidak test *****************INCOMPLETE - AS OF 5.9.23 PM, STILL LACKS POST-HOC ANALYSIS
+######ALSO NOTE: DOES NOT ACCOUNT FOR OUTLIERS YET (as of 5.9.23 PM)
+library(broom)
+# Normally distributed metabolites:
+## First pivot longer to reformat the output columns for anova function
+normal_data_long <- vs_xeno_fc_normal %>%
+  pivot_longer(cols = 3:ncol(.), names_to = "metabolite", values_to = "value")
+# Then run the two-way ANOVA by the first two columns  across all metabolites
+####NOTE: primary_tumor + dose does not include the interaction term between primary_tumor and dose (my_anova). If desire the interaction, change to primary_tumor * dose inside aov function
+normal_anova <- normal_data_long %>%
+  group_by(metabolite) %>%
+  do(tidy(aov(value ~ primary_tumor + dose, data = .)))
+## Then filter and sort for just the significant metabolites by radiation dose:
+normal_anova_dose_significant <- normal_anova %>% 
+  filter(term == "dose" & p.value <= 0.05) %>%
+  arrange(p.value) %>%
+  mutate(normality = 'normal')
+
+# Log-transformed metabolites:
+## First pivot longer to reformat the output columns for anova function
+logtransform_data_long <- vs_xeno_fc_log_transformed %>%
+  pivot_longer(cols = 3:ncol(.), names_to = "metabolite", values_to = "value")
+# Then run the two-way ANOVA by the first two columns  across all metabolites
+####NOTE: primary_tumor + dose does not include the interaction term between primary_tumor and dose (my_anova). If desire the interaction, change to primary_tumor * dose inside aov function
+logtransform_anova <- logtransform_data_long %>%
+  group_by(metabolite) %>%
+  do(tidy(aov(value ~ primary_tumor + dose, data = .)))
+## Then filter and sort for just the significant metabolites by radiation dose:
+logtransform_anova_dose_significant <- logtransform_anova %>% 
+  filter(term == "dose" & p.value <= 0.05) %>%
+  arrange(p.value) %>% 
+  mutate(normality = 'lognormal')
+
+all_anova_dose_significant <- rbind(normal_anova_dose_significant, logtransform_anova_dose_significant) %>% 
+  arrange(p.value)
+significant_metabolites <- all_anova_dose_significant$metabolite
+significant_metabolites_normal <- normal_anova_dose_significant$metabolite
+significant_metabolites_logtransform <- logtransform_anova_dose_significant$metabolite
+
+```
+
+
+### Part 2.6: Graphs of metabolites that are significantly correlated with radiation dose (limit to ~top 20 candidates)
+- I was able to use ggplot2 to graph three metabolties that were highly correlated with radiation.   
+- As noted above, this did not exclude any outliers that were identified in part 2.2   
+- Next I would like to learn to automate this graphing process, such that it would do the same graph for all metabolites that meet a given significance threshold. Unfortunately I have not yet been able to figure this out.   
+
+```{r}
+################ Graphs of metabolites that are significantly correlated with radiation dose (limit to ~top 20 candidates -- select those that are significant based on ANOVA) 
+  ###########################INCOMPLETE AS OF 5.9.23 - ONLY HAVE A FEW GRAPHS DONE
+# beta-Hydroxybutyrate fold change boxplot with color labels
+ggplot(vs_xeno_fc, aes(x = `dose`, y = `beta-Hydroxybutyrate (3-Hydroxybutyrate)`)) +
+  geom_boxplot(aes(group=`dose`)) +
+  geom_point(aes(color = `primary_tumor`)) + 
+  labs(title = "beta-Hydroxybutyrate", x = "RT Dose (Gy)", y = "Fold Change")
+
+# Lysine fold change boxplot with color labels
+ggplot(vs_xeno_fc, aes(x = `dose`, y = `Lysine`)) +
+  geom_boxplot(aes(group=`dose`)) +
+  geom_point(aes(color = `primary_tumor`)) + 
+  labs(title = "Lysine", x = "RT Dose (Gy)", y = "Fold Change")
+
+# Fold change boxplot for Spermidine - with color labels
+ggplot(vs_xeno_fc, aes(x = `dose`, y = `Spermidine`)) +
+  geom_boxplot(aes(group=`dose`)) +
+  geom_point(aes(color = `primary_tumor`)) + 
+  labs(title = "Spermidine", x = "RT Dose (Gy)", y = "Fold Change")
+```
+
+
+# Appendix
+```{r}
+## APPENDIX (part 2.1): view results of fold change calculations
+view(vs_xeno_fc)
+
+# APPENDIX (part 2.2): Print Grubbs' test results (grubbs_results) and the VS xenograft tibble with those outliers removed (vs_xeno_fc_outliers_removed)
+view(grubbs_results)
+view(vs_xeno_fc_outliers_removed)
+
+## APPENDIX (part 2.4): View results of normal and lognormal data (Appendix)
+view(vs_xeno_fc_normal)
+view(vs_xeno_fc_log_transformed)
+
+# APPENDIX (part 2.5): view all the metabolites with correlation coeff > 0.2, sorted greatest to least:
+view(cor_df_all_filtered_sorted)
+# Print top 10 metabolites by correlation values:
+cor_df_all_filtered_sorted[1:10,1]
+
+### APPENDIX (part 2.5): View list of significant metabolites based on Two-Way ANOVA (no post-hoc test yet)
+view(significant_metabolites)
+view(all_anova_dose_significant)
+```
